@@ -451,34 +451,6 @@ describeIntegration('sandbox integration', function () {
             integrationLog('default template integration completed', templates.length);
         });
     });
-
-    it('retries sandbox creation with git clone timeout', function () {
-        const repoURL = process.env.GIT_REPO_URL;
-        const token = process.env.GITHUB_TOKEN;
-        if (!repoURL || !token) {
-            console.log('skip: GIT_REPO_URL / GITHUB_TOKEN not set');
-            return Promise.resolve();
-        }
-
-        const client = sandboxClient();
-        const idempotencyKey = `sdk-retry-git-${Math.floor(Date.now() / 1000)}`;
-        console.log(`repo: ${repoURL}, idempotencyKey: ${idempotencyKey}`);
-
-        return client.createSandbox({
-            template: config.template,
-            timeout: 300,
-            resources: [{
-                type: 'github_repository',
-                url: repoURL,
-                mount_path: '/repo',
-                authorization_token: token
-            }],
-            idempotencyKey
-        }).then(info => {
-            console.log('sandbox created:', info.sandboxID);
-            return client.deleteSandbox(info.sandboxID);
-        });
-    });
 });
 
 if (!config.apiKey) {

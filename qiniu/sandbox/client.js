@@ -17,13 +17,31 @@ const {
 } = require('./util');
 
 function generateIdempotencyKey () {
-    return crypto.randomBytes(16).toString('hex');
+    const bytes = crypto.randomBytes(16);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = bytes.toString('hex');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 const retryableNetworkErrorCodes = [
-    'ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT',
+    'ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN',
     'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE'
 ];
+
+function normalizeMaxRetries (value, source, allowString) {
+    if (typeof value === 'string') {
+        if (!allowString || !/^\d+$/.test(value)) {
+            throw new SandboxError(`${source} must be a non-negative integer`);
+        }
+        value = parseInt(value, 10);
+    }
+    if (typeof value !== 'number' || !isFinite(value) ||
+        Math.floor(value) !== value || value < 0) {
+        throw new SandboxError(`${source} must be a non-negative integer`);
+    }
+    return value;
+}
 
 function normalizeSandboxCreateOptions (opts) {
     opts = opts || {};
@@ -165,10 +183,12 @@ function SandboxClient (opts) {
         httpsAgent: normalized.httpsAgent
     });
     if (opts.maxRetries !== undefined && opts.maxRetries !== null) {
-        this.maxRetries = opts.maxRetries;
+        this.maxRetries = normalizeMaxRetries(opts.maxRetries, 'maxRetries', false);
     } else {
         const envVal = process.env.SANDBOX_RETRY_MAX;
-        this.maxRetries = envVal && /^\d+$/.test(envVal) ? parseInt(envVal, 10) : 5;
+        this.maxRetries = envVal
+            ? normalizeMaxRetries(envVal, 'SANDBOX_RETRY_MAX', true)
+            : 5;
     }
 }
 
