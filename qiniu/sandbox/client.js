@@ -17,7 +17,7 @@ const {
 } = require('./util');
 
 function generateIdempotencyKey () {
-    return crypto.randomUUID();
+    return crypto.randomBytes(16).toString('hex');
 }
 
 function normalizeSandboxCreateOptions (opts) {

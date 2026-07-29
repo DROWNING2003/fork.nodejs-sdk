@@ -1,5 +1,5 @@
 /**
- * 幂等重试示例：同一幂等键连调两次 Create，验证返回同一沙箱。
+ * 幂等重试示例：同一幂等键连续两次 Create，验证返回同一沙箱。
  */
 const qiniu = require('../');
 
@@ -9,19 +9,32 @@ if (!apiKey) {
     process.exit(1);
 }
 
-const opts = {
+const idempotencyKey = `sdk-example-${Math.floor(Date.now() / 1000)}`;
+console.log('幂等键:', idempotencyKey);
+
+const createOpts = {
     templateID: 'base',
     timeout: 300,
     endpoint: process.env.QINIU_SANDBOX_ENDPOINT,
-    apiKey,
-    idempotencyKey: `sdk-example-${Math.floor(Date.now() / 1000)}`
+    apiKey
 };
 
-console.log('幂等键:', opts.idempotencyKey);
+Promise.all([
+    qiniu.Sandbox.create(Object.assign({}, createOpts, { idempotencyKey })),
+    qiniu.Sandbox.create(Object.assign({}, createOpts, { idempotencyKey }))
+]).then(([sb1, sb2]) => {
+    console.log('第一次创建:', sb1.sandboxId);
+    console.log('第二次创建:', sb2.sandboxId);
 
-qiniu.Sandbox.create(opts).then(sandbox => {
-    console.log('沙箱创建成功:', sandbox.sandboxId);
-    return sandbox.kill().then(() => console.log('沙箱已清理'));
+    if (sb1.sandboxId === sb2.sandboxId) {
+        console.log('\n幂等重试验证通过：两次创建返回同一沙箱');
+    } else {
+        console.log('\nWARNING: 两次创建返回不同沙箱');
+    }
+
+    return sb1.kill().then(() => {
+        console.log('沙箱已清理');
+    });
 }).catch(err => {
     console.error('失败:', err.message);
     process.exit(1);
