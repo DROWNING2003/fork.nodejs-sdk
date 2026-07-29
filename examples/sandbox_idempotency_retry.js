@@ -26,13 +26,17 @@ Promise.all([
     console.log('第一次创建:', sb1.sandboxId);
     console.log('第二次创建:', sb2.sandboxId);
 
-    if (sb1.sandboxId === sb2.sandboxId) {
+    const sameSandbox = sb1.sandboxId === sb2.sandboxId;
+    if (sameSandbox) {
         console.log('\n幂等重试验证通过：两次创建返回同一沙箱');
     } else {
         console.log('\nWARNING: 两次创建返回不同沙箱');
     }
 
-    return sb1.kill().then(() => {
+    const cleanup = sameSandbox
+        ? sb1.kill()
+        : Promise.all([sb1.kill(), sb2.kill()]);
+    return cleanup.then(() => {
         console.log('沙箱已清理');
     });
 }).catch(err => {
