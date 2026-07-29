@@ -478,6 +478,11 @@ describeIntegration('sandbox integration', function () {
             console.log('sandbox created:', info.sandboxID);
             return client.deleteSandbox(info.sandboxID);
         }).catch(err => {
+            const sc = (err.response && err.response.statusCode) ||
+                       (err.resp && err.resp.statusCode) || 0;
+            if (sc >= 400 && sc < 500) {
+                throw err;
+            }
             console.log('create failed (retryable scenario):', err.message);
         });
     });

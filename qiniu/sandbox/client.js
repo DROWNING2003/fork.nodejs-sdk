@@ -285,7 +285,10 @@ SandboxClient.prototype._retryCall = function (fn) {
     function attempt (n) {
         return fn().catch(err => {
             if (n < self.maxRetries && self._isRetryable(err)) {
-                return attempt(n + 1);
+                const base = Math.min(500 * Math.pow(2, n), 10000);
+                const jitter = Math.random() * base / 2;
+                return new Promise(resolve => setTimeout(resolve, base + jitter))
+                    .then(() => attempt(n + 1));
             }
             throw err;
         });
