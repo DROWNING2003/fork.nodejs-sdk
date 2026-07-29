@@ -7,6 +7,62 @@ const {
 } = require('./sandbox_helpers');
 
 describe('test sandbox client module', function () {
+    it('retries retryable responses and keeps the idempotency key stable', function () {
+        const client = new qiniu.sandbox.SandboxClient({
+            endpoint: 'http://sandbox.test',
+            apiKey: 'sandbox-key',
+            maxRetries: 1
+        });
+        const requests = [];
+        client.httpClient.sendRequest = request => {
+            requests.push(request);
+            if (requests.length === 1) {
+                return Promise.resolve({
+                    ok: () => false,
+                    resp: { statusCode: 408 },
+                    data: { message: 'request timeout' }
+                });
+            }
+            return Promise.resolve({
+                ok: () => true,
+                data: { sandboxID: 'sbx_retry' }
+            });
+        };
+        const originalSetTimeout = global.setTimeout;
+        global.setTimeout = callback => {
+            callback();
+            return null;
+        };
+
+        const restoreSetTimeout = () => {
+            global.setTimeout = originalSetTimeout;
+        };
+        return client.createSandbox({
+            template: 'base',
+            idempotencyKey: 'retry-key'
+        }).then(info => {
+            restoreSetTimeout();
+            info.sandboxID.should.eql('sbx_retry');
+            requests.length.should.eql(2);
+            requests.map(request => request.urllibOptions.headers['Idempotency-Key'])
+                .should.eql(['retry-key', 'retry-key']);
+        }, err => {
+            restoreSetTimeout();
+            throw err;
+        });
+    });
+
+    it('recognizes Node.js network error codes as retryable', function () {
+        const client = new qiniu.sandbox.SandboxClient({
+            endpoint: 'http://sandbox.test',
+            apiKey: 'sandbox-key'
+        });
+
+        ['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT'].forEach(code => {
+            client._isRetryable({ code }).should.eql(true);
+        });
+    });
+
     it('creates sandbox with E2B compatible options and API key auth', function () {
         return startServer((req, res) => {
             res.statusCode = 201;

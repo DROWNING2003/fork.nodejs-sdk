@@ -453,10 +453,10 @@ describeIntegration('sandbox integration', function () {
     });
 
     it('retries sandbox creation with git clone timeout', function () {
-        const repoURL = process.env.GITHUB_REPO_URL;
+        const repoURL = process.env.GIT_REPO_URL;
         const token = process.env.GITHUB_TOKEN;
         if (!repoURL || !token) {
-            console.log('skip: GITHUB_REPO_URL / GITHUB_TOKEN not set');
+            console.log('skip: GIT_REPO_URL / GITHUB_TOKEN not set');
             return Promise.resolve();
         }
 
@@ -477,13 +477,6 @@ describeIntegration('sandbox integration', function () {
         }).then(info => {
             console.log('sandbox created:', info.sandboxID);
             return client.deleteSandbox(info.sandboxID);
-        }).catch(err => {
-            const sc = (err.response && err.response.statusCode) ||
-                       (err.resp && err.resp.statusCode) || 0;
-            if (sc >= 400 && sc < 500) {
-                throw err;
-            }
-            console.log('create failed (retryable scenario):', err.message);
         });
     });
 });

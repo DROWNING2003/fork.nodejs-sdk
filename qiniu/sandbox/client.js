@@ -20,6 +20,11 @@ function generateIdempotencyKey () {
     return crypto.randomBytes(16).toString('hex');
 }
 
+const retryableNetworkErrorCodes = [
+    'ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT',
+    'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE'
+];
+
 function normalizeSandboxCreateOptions (opts) {
     opts = opts || {};
     const body = {};
@@ -273,6 +278,9 @@ SandboxClient.prototype._isRetryable = function (err) {
         if (sc === 408) return true;
         if (sc >= 500 && sc !== 501) return true;
         return false;
+    }
+    if (err && retryableNetworkErrorCodes.indexOf(err.code) >= 0) {
+        return true;
     }
     const msg = String(err.message || err).toLowerCase();
     return ['connection refused', 'connection reset', 'broken pipe',
